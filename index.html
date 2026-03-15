@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>غذائي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #2ecc71; --primary-dark: #27ae60; --primary-light: #d5f5e3;
+    --secondary: #3498db; --danger: #e74c3c; --warning: #f39c12;
+    --dark: #1a2332; --mid: #2c3e50; --gray: #8899a8;
+    --light-gray: #f0f4f8; --border: #e8edf2; --white: #ffffff;
+    --card-shadow: 0 2px 12px rgba(26,35,50,0.08);
+    --sheet-shadow: 0 -8px 40px rgba(26,35,50,0.18);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans Arabic', sans-serif; background: var(--light-gray); color: var(--dark); min-height: 100vh; padding-bottom: 90px; overflow-x: hidden; }
+
+  /* HEADER */
+  .app-header { background: var(--white); position: sticky; top: 0; z-index: 200; box-shadow: 0 1px 0 var(--border); }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 10px 15px 0; }
+  .app-title { font-size: 1.25rem; font-weight: 700; color: var(--dark); display: flex; align-items: center; gap: 1px; }
+  .app-title span { color: var(--primary); }
+  .today-btn { font-family: 'IBM Plex Sans Arabic'; font-size: 0.75rem; font-weight: 600; color: var(--primary); background: var(--primary-light); border: none; border-radius: 20px; padding: 1px 12px 3px; cursor: pointer; transition: all 0.2s; }
+  .today-btn:active { transform: scale(0.95); }
+
+  /* DATE STRIP */
+  .date-strip { display: flex; overflow-x: auto; gap: 8px; padding: 4px 2px 14px; scrollbar-width: none; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .date-strip::-webkit-scrollbar { display: none; }
+  .day-pill { min-width: 52px; height: 64px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 2px solid transparent; background: transparent; transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1); scroll-snap-align: center; position: relative; flex-shrink: 0; }
+  .day-pill .d-name { font-size: 0.68rem; font-weight: 500; color: var(--gray); margin-bottom: 3px; }
+  .day-pill .d-num { font-size: 1.05rem; font-weight: 700; color: var(--mid); }
+  .day-pill .d-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--primary); opacity: 0; margin-top: 3px; transition: opacity 0.2s; }
+  .day-pill.has-log .d-dot { opacity: 1; }
+  .day-pill.active { background: var(--primary); border-color: var(--primary); transform: scale(1.05); box-shadow: 0 4px 16px rgba(46,204,113,0.35); }
+  .day-pill.active .d-name, .day-pill.active .d-num { color: white; }
+  .day-pill.active .d-dot { background: white; opacity: 1; }
+  .day-pill.today-indicator:not(.active) { border-color: var(--primary); background: var(--primary-light); }
+  .day-pill.today-indicator:not(.active) .d-num { color: var(--primary-dark); }
+  .day-pill:not(.active):active { transform: scale(0.93); }
+
+  /* MAIN */
+  .main-content { padding: 18px 16px; max-width: 600px; margin: 0 auto; }
+  .view-section { display: none; }
+  .view-section.active { display: block; animation: fadeUp 0.3s cubic-bezier(0.34,1.2,0.64,1); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* RING CARD */
+  .cal-card { background: var(--white); border-radius: 20px; padding: 22px; margin-bottom: 14px; box-shadow: var(--card-shadow); }
+  .ring-row { display: flex; align-items: center; gap: 20px; }
+  .ring-wrap { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: var(--light-gray); stroke-width: 10; }
+  .ring-progress { fill: none; stroke: var(--primary); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 314; stroke-dashoffset: 314; transition: stroke-dashoffset 0.8s cubic-bezier(0.34,1.2,0.64,1); }
+  .ring-progress.danger { stroke: var(--danger); }
+  .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .ring-cal { font-size: 1.4rem; font-weight: 700; color: var(--dark); line-height: 1; }
+  .ring-label { font-size: 0.6rem; color: var(--gray); margin-top: 2px; }
+  .ring-stats { flex: 1; }
+  .remaining-text { font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: var(--primary-dark); display: flex; align-items: center; gap: 6px; }
+  .remaining-text.over { color: var(--danger); }
+  .macro-bars { display: flex; flex-direction: column; gap: 8px; }
+  .macro-row { display: flex; align-items: center; gap: 8px; }
+  .macro-name { font-size: 0.7rem; font-weight: 600; color: var(--gray); width: 32px; text-align: right; }
+  .macro-bar-bg { flex: 1; height: 6px; background: var(--light-gray); border-radius: 10px; overflow: hidden; }
+  .macro-bar-fill { height: 100%; border-radius: 10px; transition: width 0.7s cubic-bezier(0.34,1.2,0.64,1); }
+  .macro-val { font-size: 0.68rem; font-weight: 600; color: var(--mid); width: 50px; white-space: nowrap; }
+  .prot-color { background: #3498db; } .carb-color { background: #f39c12; } .fat-color { background: #9b59b6; }
+
+  /* MEAL LOG */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .section-title { font-size: 0.95rem; font-weight: 700; color: var(--dark); }
+  .meal-card { background: var(--white); border-radius: 16px; overflow: hidden; box-shadow: var(--card-shadow); margin-bottom: 10px; }
+  .meal-item { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  .meal-item:last-child { border-bottom: none; }
+  .meal-item:active { background: var(--light-gray); }
+  .meal-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .meal-info { flex: 1; min-width: 0; }
+  .meal-name { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meal-meta { font-size: 0.72rem; color: var(--gray); margin-top: 2px; }
+  .meal-cal { font-size: 0.9rem; font-weight: 700; color: var(--primary-dark); margin-left: 8px; }
+  .meal-delete { width: 32px; height: 32px; border-radius: 10px; border: none; background: #fdf2f2; color: var(--danger); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+  .meal-delete:active { transform: scale(0.88); }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--gray); background: var(--white); border-radius: 16px; box-shadow: var(--card-shadow); }
+  .empty-state svg { opacity: 0.35; margin-bottom: 12px; }
+  .empty-state p { font-size: 0.9rem; }
+
+  /* FOODS */
+  .search-bar { display: flex; align-items: center; gap: 10px; background: var(--white); border-radius: 14px; padding: 11px 14px; box-shadow: var(--card-shadow); margin-bottom: 14px; }
+  .search-bar input { flex: 1; border: none; outline: none; font-family: inherit; font-size: 0.9rem; color: var(--dark); background: transparent; }
+  .search-bar input::placeholder { color: var(--gray); }
+  .food-item { background: var(--white); border-radius: 14px; padding: 13px 16px; margin-bottom: 8px; box-shadow: var(--card-shadow); display: flex; align-items: center; gap: 12px; animation: fadeUp 0.2s both; }
+  .food-icon { width: 42px; height: 42px; border-radius: 12px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--primary-dark); }
+  .food-info { flex: 1; min-width: 0; }
+  .food-name { font-size: 0.88rem; font-weight: 600; }
+  .food-macros { font-size: 0.7rem; color: var(--gray); margin-top: 3px; }
+  .food-macros span { margin-left: 8px; }
+  .food-actions { display: flex; gap: 6px; }
+  .icon-btn { width: 34px; height: 34px; border-radius: 10px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .icon-btn:active { transform: scale(0.88); }
+  .btn-edit { background: #eef6ff; color: var(--secondary); }
+  .btn-del { background: #fdf2f2; color: var(--danger); }
+
+  /* GROUPS */
+  .group-card { background: var(--white); border-radius: 14px; padding: 14px 16px; margin-bottom: 8px; box-shadow: var(--card-shadow); display: flex; align-items: center; gap: 12px; animation: fadeUp 0.2s both; }
+  .group-icon { width: 42px; height: 42px; border-radius: 12px; background: #eef6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--secondary); }
+  .group-info { flex: 1; }
+  .group-name { font-size: 0.88rem; font-weight: 600; }
+  .group-count { font-size: 0.72rem; color: var(--gray); margin-top: 2px; }
+
+  /* ═══════════ NATIVE SETTINGS ═══════════ */
+  .profile-card {
+    background: linear-gradient(135deg, #1fa35a 0%, #2ecc71 55%, #52d68a 100%);
+    border-radius: 22px; padding: 20px 18px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 8px 28px rgba(46,204,113,0.32);
+    position: relative; overflow: hidden;
+  }
+  .profile-card::before { content: ''; position: absolute; top: -20px; left: -20px; width: 120px; height: 120px; background: rgba(255,255,255,0.07); border-radius: 50%; }
+  .profile-card::after { content: ''; position: absolute; bottom: -30px; right: 40px; width: 90px; height: 90px; background: rgba(255,255,255,0.05); border-radius: 50%; }
+  .profile-avatar { width: 58px; height: 58px; border-radius: 50%; background: rgba(255,255,255,0.22); display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 2.5px solid rgba(255,255,255,0.45); position: relative; z-index: 1; }
+  .profile-info { flex: 1; position: relative; z-index: 1; }
+  .profile-name { font-size: 1.05rem; font-weight: 700; color: white; }
+  .profile-sub { font-size: 0.75rem; color: rgba(255,255,255,0.78); margin-top: 3px; }
+  .profile-edit-btn { background: rgba(255,255,255,0.18); border: 1.5px solid rgba(255,255,255,0.32); color: white; border-radius: 20px; padding: 7px 14px; font-size: 0.75rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.2s; position: relative; z-index: 1; white-space: nowrap; }
+  .profile-edit-btn:active { background: rgba(255,255,255,0.32); transform: scale(0.95); }
+
+  .stats-mini-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+  .stat-mini { background: var(--white); border-radius: 16px; padding: 14px 10px; text-align: center; box-shadow: var(--card-shadow); }
+  .stat-mini-val { font-size: 1.1rem; font-weight: 700; color: var(--dark); line-height: 1; }
+  .stat-mini-val small { font-size: 0.62rem; font-weight: 500; color: var(--gray); }
+  .stat-mini-label { font-size: 0.64rem; color: var(--gray); margin-top: 5px; font-weight: 500; }
+
+  .s-label { font-size: 0.7rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 4px; margin: 22px 0 8px; display: block; }
+
+  .s-group { background: var(--white); border-radius: 18px; box-shadow: var(--card-shadow); overflow: hidden; }
+  .s-row { display: flex; align-items: center; gap: 12px; padding: 0 16px; min-height: 56px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .s-row:last-child { border-bottom: none; }
+  .s-row:active { background: var(--light-gray); }
+  .s-row.static { cursor: default; }
+  .s-row.static:active { background: transparent; }
+  .s-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .s-icon.green  { background: #d5f5e3; color: #1fa35a; }
+  .s-icon.blue   { background: #d6eaf8; color: #2471a3; }
+  .s-icon.orange { background: #fdebd0; color: #ca6f1e; }
+  .s-icon.purple { background: #e8daef; color: #76448a; }
+  .s-icon.red    { background: #fadbd8; color: #c0392b; }
+  .s-icon.gray   { background: var(--light-gray); color: var(--gray); }
+  .s-icon.teal   { background: #d1f2eb; color: #117a65; }
+  .s-icon.yellow { background: #fef9e7; color: #b7950b; }
+  .s-body { flex: 1; min-width: 0; }
+  .s-title { font-size: 0.9rem; font-weight: 500; color: var(--dark); }
+  .s-sub { font-size: 0.72rem; color: var(--gray); margin-top: 1px; }
+  .s-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .s-value { font-size: 0.88rem; color: var(--gray); font-weight: 500; }
+  .s-value.accent { color: var(--primary-dark); font-weight: 700; }
+  .s-badge { background: var(--primary); color: white; font-size: 0.62rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+  .s-chevron { color: #c8d2da; }
+
+  /* iOS Toggle */
+  .ios-toggle { position: relative; width: 50px; height: 28px; flex-shrink: 0; }
+  .ios-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .ios-track { position: absolute; inset: 0; background: #dde3ea; border-radius: 14px; transition: background 0.28s; cursor: pointer; }
+  .ios-track::after { content: ''; position: absolute; width: 22px; height: 22px; background: white; border-radius: 50%; top: 3px; right: 3px; transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1); box-shadow: 0 2px 6px rgba(0,0,0,0.22); }
+  .ios-toggle input:checked ~ .ios-track { background: var(--primary); }
+  .ios-toggle input:checked ~ .ios-track::after { transform: translateX(-22px); }
+
+  /* Step btn */
+  .step-btn { width: 61px; height: 61px; border-radius: 70%; border: 1.5px solid var(--border); background: var(--light-gray); color: var(--dark); font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; font-weight: 700; flex-shrink: 0; }
+  .step-btn:active { transform: scale(0.82); background: var(--border); }
+
+  .settings-footer { text-align: center; padding: 32px 0 12px; }
+  .footer-logo { width: 52px; height: 52px; background: linear-gradient(135deg, #1fa35a, #2ecc71); border-radius: 14px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(46,204,113,0.3); }
+  .footer-name { font-size: 0.88rem; font-weight: 700; color: var(--dark); }
+  .footer-version { font-size: 0.72rem; color: var(--gray); margin-top: 3px; }
+  .footer-copy { font-size: 0.68rem; color: #bbc5ce; margin-top: 16px; }
+
+  /* FAB */
+  .fab { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; border: none; border-radius: 50px; padding: 14px 24px; font-family: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; box-shadow: 0 6px 24px rgba(46,204,113,0.45); display: flex; align-items: center; gap: 8px; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 150; white-space: nowrap; }
+  .fab:active { transform: translateX(-50%) scale(0.94); box-shadow: 0 3px 12px rgba(46,204,113,0.35); }
+  .fab.hidden { opacity: 0; transform: translateX(-50%) scale(0.7) translateY(20px); pointer-events: none; }
+
+  /* BOTTOM NAV */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); display: flex; border-top: 1px solid var(--border); z-index: 300; padding: 0 8px; padding-bottom: env(safe-area-inset-bottom, 0); }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 4px; cursor: pointer; gap: 4px; border: none; background: none; font-family: inherit; color: var(--gray); font-size: 0.65rem; font-weight: 500; transition: color 0.2s; position: relative; }
+  .nav-item svg { transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+  .nav-item.active { color: var(--primary); }
+  .nav-item.active svg { transform: scale(1.12); }
+  .nav-indicator { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 36px; height: 3px; background: var(--primary); border-radius: 0 0 4px 4px; opacity: 0; transition: opacity 0.2s; }
+  .nav-item.active .nav-indicator { opacity: 1; }
+
+  /* BOTTOM SHEET */
+  .sheet-overlay { position: fixed; inset: 0; background: rgba(26,35,50,0.5); z-index: 500; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; backdrop-filter: blur(2px); }
+  .sheet-overlay.open { opacity: 1; visibility: visible; }
+  .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-radius: 24px 24px 0 0; z-index: 600; transform: translateY(100%); transition: transform 0.38s cubic-bezier(0.34,1.1,0.64,1); max-height: 92vh; display: flex; flex-direction: column; box-shadow: var(--sheet-shadow); padding-bottom: env(safe-area-inset-bottom, 0); }
+  .bottom-sheet.open { transform: translateY(0); }
+  .sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 10px; margin: 12px auto 0; flex-shrink: 0; }
+  .sheet-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 0; flex-shrink: 0; }
+  .sheet-title { font-size: 1.05rem; font-weight: 700; color: var(--dark); }
+  .sheet-close { width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--light-gray); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--gray); transition: all 0.2s; }
+  .sheet-close:active { transform: scale(0.88); }
+  .sheet-body { padding: 16px 20px 24px; overflow-y: auto; flex: 1; }
+  .sheet-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 0.95rem; color: var(--dark); background: var(--light-gray); outline: none; margin-bottom: 12px; transition: border-color 0.2s, box-shadow 0.2s; }
+  .sheet-input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(46,204,113,0.12); }
+  .sheet-label { font-size: 0.78rem; font-weight: 600; color: var(--gray); margin-bottom: 6px; display: block; }
+  .sheet-select { width: 100%; padding: 15px 14px; border: 1.5px solid var(--border); border-radius: 12px; font-family: inherit; font-size: 0.92rem; color: var(--dark); background: var(--light-gray); outline: none; margin-bottom: 12px; appearance: none; cursor: pointer; transition: border-color 0.2s; }
+  .sheet-select:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 3px rgba(46,204,113,0.12); }
+  .macros-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .sheet-btn { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 14px; font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 6px; }
+  .sheet-btn:active { transform: scale(0.97); background: var(--primary-dark); }
+
+  .segment-ctrl { display: flex; background: var(--light-gray); border-radius: 12px; padding: 3px; margin-bottom: 14px; gap: 3px; }
+  .seg-btn { flex: 1; padding: 9px; border: none; border-radius: 10px; font-family: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: var(--gray); background: transparent; transition: all 0.25s cubic-bezier(0.34,1.2,0.64,1); }
+  .seg-btn.active { background: white; color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+  .builder-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--light-gray); border-radius: 10px; margin-bottom: 6px; font-size: 0.82rem; }
+  .builder-del { background: none; border: none; color: var(--danger); cursor: pointer; padding: 4px; display: flex; align-items: center; }
+  .add-ingredient-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 12px; }
+  .add-ingredient-row .sheet-select, .add-ingredient-row .sheet-input { margin-bottom: 0; }
+  .add-ingredient-row .sheet-select { flex: 1.5; }
+  .add-ingredient-row .sheet-input { flex: 1; }
+  .add-ingr-btn { width: 44px; height: 46px; background: var(--primary); color: white; border: none; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+  .add-ingr-btn:active { transform: scale(0.88); background: var(--primary-dark); }
+
+  /* Goal presets */
+  .preset-btn { padding: 8px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--light-gray); font-family: inherit; font-size: 0.82rem; font-weight: 600; color: var(--dark); cursor: pointer; transition: all 0.18s; }
+  .preset-btn:active { background: var(--primary-light); border-color: var(--primary); }
+
+  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--dark); color: white; padding: 11px 20px; border-radius: 30px; font-size: 0.84rem; font-weight: 500; opacity: 0; z-index: 9999; transition: all 0.35s cubic-bezier(0.34,1.2,0.64,1); white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-top">
+    <div class="app-title"><span>غذا</span>ئي</div>
+    <button class="today-btn" onclick="goToday()">اليوم</button>
+  </div>
+  <div class="date-strip" id="date-strip"></div>
+</header>
+
+<main class="main-content">
+
+  <!-- DASHBOARD -->
+  <section id="view-dashboard" class="view-section active">
+    <div class="cal-card">
+      <div class="ring-row">
+        <div class="ring-wrap">
+          <svg width="110" height="110" viewBox="0 0 110 110"><circle class="ring-track" cx="55" cy="55" r="50"/><circle class="ring-progress" id="ring-arc" cx="55" cy="55" r="50"/></svg>
+          <div class="ring-center"><span class="ring-cal" id="ring-cal">0</span><span class="ring-label">سعرة</span></div>
+        </div>
+        <div class="ring-stats">
+          <div class="remaining-text" id="remaining-text">المتبقي: 0 سعرة</div>
+          <div class="macro-bars">
+            <div class="macro-row"><span class="macro-name">بروتين</span><div class="macro-bar-bg"><div class="macro-bar-fill prot-color" id="bar-prot" style="width:0%"></div></div><span class="macro-val" id="val-prot">0/0</span></div>
+            <div class="macro-row"><span class="macro-name">كارب</span><div class="macro-bar-bg"><div class="macro-bar-fill carb-color" id="bar-carb" style="width:0%"></div></div><span class="macro-val" id="val-carb">0/0</span></div>
+            <div class="macro-row"><span class="macro-name">دهون</span><div class="macro-bar-bg"><div class="macro-bar-fill fat-color" id="bar-fat" style="width:0%"></div></div><span class="macro-val" id="val-fat">0/0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section-header"><span class="section-title">وجبات اليوم</span><span style="font-size:0.75rem;color:var(--gray)" id="weight-total"></span></div>
+    <div id="daily-log-list"></div>
+  </section>
+
+  <!-- FOODS -->
+  <section id="view-foods" class="view-section">
+    <div class="search-bar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gray)" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input type="text" id="food-search" placeholder="ابحث عن منتج..." oninput="renderFoods()"></div>
+    <div id="foods-list"></div>
+  </section>
+
+  <!-- GROUPS -->
+  <section id="view-groups" class="view-section"><div id="groups-list"></div></section>
+
+  <!-- SETTINGS -->
+  <section id="view-settings" class="view-section">
+
+    <div class="profile-card">
+      <div class="profile-avatar"><svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+      <div class="profile-info"><div class="profile-name" id="profile-name-display">المستخدم</div><div class="profile-sub">تتبّع نظامك الغذائي بذكاء</div></div>
+      <button class="profile-edit-btn" onclick="openProfileSheet()">تعديل</button>
+    </div>
+
+    <div class="stats-mini-row" id="settings-stats"></div>
+
+    <span class="s-label">الأهداف اليومية</span>
+    <div class="s-group">
+      <div class="s-row" onclick="openGoalSheet('cal')">
+        <div class="s-icon green"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2.05V4.07c3.95.49 7 3.85 7 7.93 0 3.21-1.81 6-4.72 7.28L13 17v5h5l-1.22-1.22C19.91 19.07 22 15.76 22 12c0-5.18-3.95-9.45-9-9.95zm-2 .02C5.95 2.55 2 6.82 2 12c0 3.76 2.09 7.07 5.22 8.78L6 22h5V6.07l-2-.58V2.07z"/></svg></div>
+        <div class="s-body"><div class="s-title">السعرات الحرارية</div><div class="s-sub">هدفك اليومي من الطاقة</div></div>
+        <div class="s-right"><span class="s-value accent" id="disp-cal">2500 kcal</span><span class="s-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span></div>
+      </div>
+      <div class="s-row" onclick="openGoalSheet('prot')">
+        <div class="s-icon blue"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4v10c0 3.31 2.69 6 6 6h4c3.31 0 6-2.69 6-6V3zm-6 8h-2V9h-2V7h2V5h2v2h2v2h-2v2zm-4 6v3H8v-3h2zm4 0h2v3h-2v-3z"/></svg></div>
+        <div class="s-body"><div class="s-title">البروتين</div><div class="s-sub">لبناء العضلات والشبع</div></div>
+        <div class="s-right"><span class="s-value accent" id="disp-prot">150 ج</span><span class="s-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span></div>
+      </div>
+      <div class="s-row" onclick="openGoalSheet('carb')">
+        <div class="s-icon orange"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18.06 22.99h1.66c.84 0 1.53-.64 1.63-1.46L23 5.05h-5V1h-1.97v4.05h-4.97l.3 2.34c1.71.47 3.31 1.32 4.27 2.26 1.44 1.42 2.43 2.89 2.43 5.29v8.05zM1 21.99V21h15.03v.99c0 .55-.45 1-1.01 1H2.01c-.56 0-1.01-.45-1.01-1zm15.03-7c0-8-15.03-8-15.03 0h15.03zM1.02 17h15v2H1z"/></svg></div>
+        <div class="s-body"><div class="s-title">الكربوهيدرات</div><div class="s-sub">مصدر الطاقة الأساسي</div></div>
+        <div class="s-right"><span class="s-value accent" id="disp-carb">300 ج</span><span class="s-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span></div>
+      </div>
+      <div class="s-row" onclick="openGoalSheet('fat')">
+        <div class="s-icon purple"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div>
+        <div class="s-body"><div class="s-title">الدهون</div><div class="s-sub">ضرورية للهرمونات والمفاصل</div></div>
+        <div class="s-right"><span class="s-value accent" id="disp-fat">70 ج</span><span class="s-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span></div>
+      </div>
+    </div>
+
+    <span class="s-label">التذكيرات</span>
+    <div class="s-group">
+      <div class="s-row static">
+        <div class="s-icon teal"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></div>
+        <div class="s-body"><div class="s-title">تذكير الوجبات</div><div class="s-sub">تنبيه عند اقتراب موعد الوجبة</div></div>
+        <div class="s-right"><label class="ios-toggle"><input type="checkbox" id="toggle-meal-reminder" onchange="savePrefs()"><span class="ios-track"></span></label></div>
+      </div>
+      <div class="s-row static">
+        <div class="s-icon yellow"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v4z"/></svg></div>
+        <div class="s-body"><div class="s-title">تنبيه تجاوز السعرات</div><div class="s-sub">تحذير عند تجاوز الهدف</div></div>
+        <div class="s-right"><label class="ios-toggle"><input type="checkbox" id="toggle-cal-alert" checked onchange="savePrefs()"><span class="ios-track"></span></label></div>
+      </div>
+    </div>
+
+    <span class="s-label">البيانات</span>
+    <div class="s-group">
+      <div class="s-row" onclick="exportData()">
+        <div class="s-icon blue"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></div>
+        <div class="s-body"><div class="s-title">تصدير البيانات</div><div class="s-sub">حفظ سجلاتك كملف JSON</div></div>
+        <div class="s-right"><span class="s-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span></div>
+      </div>
+      <div class="s-row" onclick="confirmClear()">
+        <div class="s-icon red"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></div>
+        <div class="s-body"><div class="s-title" style="color:var(--danger)">حذف جميع السجلات</div><div class="s-sub">مسح تاريخ الوجبات بالكامل</div></div>
+        <div class="s-right"><span class="s-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></span></div>
+      </div>
+    </div>
+
+    <span class="s-label">حول التطبيق</span>
+    <div class="s-group">
+      <div class="s-row static">
+        <div class="s-icon gray"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></div>
+        <div class="s-body"><div class="s-title">الإصدار</div></div>
+        <div class="s-right"><span class="s-value">1.0.0</span></div>
+      </div>
+      <div class="s-row static">
+        <div class="s-icon gray"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l5 2.18V11c0 3.5-2.33 6.79-5 7.93-2.67-1.14-5-4.43-5-7.93V7.18L12 5z"/></svg></div>
+        <div class="s-body"><div class="s-title">الخصوصية</div><div class="s-sub">بياناتك محفوظة على جهازك فقط</div></div>
+        <div class="s-right"><span class="s-badge">محلي 100%</span></div>
+      </div>
+    </div>
+
+    <div class="settings-footer">
+      <div class="footer-name">غذائي</div>
+      <div class="footer-version">الإصدار 1.0.0</div>
+      <div class="footer-copy">جميع بياناتك محفوظة محلياً على جهازك</div>
+    </div>
+  </section>
+</main>
+
+<button class="fab" id="main-fab" onclick="onFabClick()">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+  <span id="fab-label">إضافة وجبة</span>
+</button>
+
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="switchTab('dashboard',this)"><div class="nav-indicator"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>اليوم</button>
+  <button class="nav-item" onclick="switchTab('foods',this)"><div class="nav-indicator"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18.06 22.99h1.66c.84 0 1.53-.64 1.63-1.46L23 5.05h-5V1h-1.97v4.05h-4.97l.3 2.34c1.71.47 3.31 1.32 4.27 2.26 1.44 1.42 2.43 2.89 2.43 5.29v8.05zM1 21.99V21h15.03v.99c0 .55-.45 1-1.01 1H2.01c-.56 0-1.01-.45-1.01-1zm15.03-7c0-8-15.03-8-15.03 0h15.03zM1.02 17h15v2H1z"/></svg>الأطعمة</button>
+  <button class="nav-item" onclick="switchTab('groups',this)"><div class="nav-indicator"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"/></svg>المجموعات</button>
+  <button class="nav-item" onclick="switchTab('settings',this)"><div class="nav-indicator"></div><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>الإعدادات</button>
+</nav>
+
+<div class="sheet-overlay" id="overlay" onclick="closeSheet()"></div>
+
+<!-- SHEET: Entry -->
+<div class="bottom-sheet" id="sheet-entry">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><span class="sheet-title">إضافة إلى السجل</span><button class="sheet-close" onclick="closeSheet()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></div>
+  <div class="sheet-body">
+    <div class="segment-ctrl"><button class="seg-btn active" onclick="setEntryType('food',this)">منتج منفرد</button><button class="seg-btn" onclick="setEntryType('group',this)">مجموعة منتجات</button></div>
+    <label class="sheet-label">اختر من القائمة</label><select class="sheet-select" id="entry-source-id"></select>
+    <label class="sheet-label">الكمية (جرام)</label><input type="number" class="sheet-input" id="entry-weight" placeholder="أدخل الوزن بالجرام...">
+    <button class="sheet-btn" onclick="addConsumptionEntry()">إضافة للسجل</button>
+  </div>
+</div>
+
+<!-- SHEET: Food -->
+<div class="bottom-sheet" id="sheet-food">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><span class="sheet-title" id="food-sheet-title">منتج جديد</span><button class="sheet-close" onclick="closeSheet()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></div>
+  <div class="sheet-body">
+    <input type="hidden" id="edit-food-id">
+    <label class="sheet-label">اسم المنتج</label><input type="text" class="sheet-input" id="food-name" placeholder="مثال: خبز القمح الكامل">
+    <label class="sheet-label">وزن الحصة (جرام)</label><input type="number" class="sheet-input" id="food-serving" value="100">
+    <div class="macros-row"><div><label class="sheet-label">السعرات</label><input type="number" class="sheet-input" id="food-cal" placeholder="kcal"></div><div><label class="sheet-label">البروتين (ج)</label><input type="number" class="sheet-input" id="food-prot" placeholder="ج"></div></div>
+    <div class="macros-row"><div><label class="sheet-label">الكارب (ج)</label><input type="number" class="sheet-input" id="food-carb" placeholder="ج"></div><div><label class="sheet-label">الدهون (ج)</label><input type="number" class="sheet-input" id="food-fat" placeholder="ج"></div></div>
+    <button class="sheet-btn" onclick="saveFood()">حفظ المنتج</button>
+  </div>
+</div>
+
+<!-- SHEET: Group -->
+<div class="bottom-sheet" id="sheet-group">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><span class="sheet-title">مجموعة جديدة</span><button class="sheet-close" onclick="closeSheet()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></div>
+  <div class="sheet-body">
+    <label class="sheet-label">اسم المجموعة</label><input type="text" class="sheet-input" id="group-name" placeholder="مثال: فطور الشوفان">
+    <label class="sheet-label">المكونات</label><div id="group-builder-list" style="margin-bottom:12px"></div>
+    <label class="sheet-label">أضف مكوّن</label>
+    <div class="add-ingredient-row"><select class="sheet-select" id="group-food-select"></select><input type="number" class="sheet-input" id="group-food-weight" placeholder="جرام"><button class="add-ingr-btn" onclick="addItemToGroupBuilder()"><svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></button></div>
+    <button class="sheet-btn" onclick="saveGroup()">حفظ المجموعة</button>
+  </div>
+</div>
+
+<!-- SHEET: Goal edit -->
+<div class="bottom-sheet" id="sheet-goal">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><span class="sheet-title" id="goal-sheet-title">تعديل الهدف</span><button class="sheet-close" onclick="closeSheet()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></div>
+  <div class="sheet-body">
+    <input type="hidden" id="goal-key">
+    <label class="sheet-label" id="goal-field-label">القيمة</label>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+      <button class="step-btn" onclick="adjustGoal(-10)">−</button>
+      <input type="number" class="sheet-input" id="goal-value-input" style="flex:1;text-align:center;font-size:1.4rem;font-weight:700;margin:0;">
+      <button class="step-btn" onclick="adjustGoal(10)">+</button>
+    </div>
+    <div id="goal-presets" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;"></div>
+    <button class="sheet-btn" onclick="saveGoalFromSheet()">حفظ</button>
+  </div>
+</div>
+
+<!-- SHEET: Profile -->
+<div class="bottom-sheet" id="sheet-profile">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><span class="sheet-title">الملف الشخصي</span><button class="sheet-close" onclick="closeSheet()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></div>
+  <div class="sheet-body">
+    <label class="sheet-label">الاسم</label><input type="text" class="sheet-input" id="profile-name-input" placeholder="اسمك">
+    <button class="sheet-btn" onclick="saveProfile()">حفظ</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let state = {
+  currentDate: new Date().toISOString().split('T')[0], entryType: 'food',
+  foods: JSON.parse(localStorage.getItem('nutrition_foods')) || [
+    {id:1,name:"خبز السلطان",serving:100,cal:302,prot:9,carb:65,fat:1},
+    {id:2,name:"حليب كامل الدسم",serving:100,cal:510,prot:24,carb:38.3,fat:28},
+    {id:3,name:"شوفان",serving:100,cal:385,prot:12,carb:65,fat:8}
+  ],
+  groups: JSON.parse(localStorage.getItem('nutrition_groups')) || [],
+  dailyLogs: JSON.parse(localStorage.getItem('nutrition_logs')) || {},
+  goals: JSON.parse(localStorage.getItem('nutrition_goals')) || {cal:2500,prot:150,carb:300,fat:70},
+  prefs: JSON.parse(localStorage.getItem('nutrition_prefs')) || {name:'المستخدم',mealReminder:false,calAlert:true}
+};
+let currentGroupItems=[], activeSheet=null, currentTab='dashboard';
+
+function save() {
+  localStorage.setItem('nutrition_foods', JSON.stringify(state.foods));
+  localStorage.setItem('nutrition_groups', JSON.stringify(state.groups));
+  localStorage.setItem('nutrition_logs', JSON.stringify(state.dailyLogs));
+  localStorage.setItem('nutrition_goals', JSON.stringify(state.goals));
+  localStorage.setItem('nutrition_prefs', JSON.stringify(state.prefs));
+}
+
+function renderDateStrip() {
+  const strip = document.getElementById('date-strip');
+  const today = new Date().toISOString().split('T')[0];
+  const cur = new Date(state.currentDate);
+  strip.innerHTML = '';
+  for (let i=-14; i<=14; i++) {
+    let d = new Date(cur); d.setDate(d.getDate()+i);
+    const dStr = d.toISOString().split('T')[0];
+    const isActive = dStr===state.currentDate, isToday=dStr===today;
+    const hasLog = !!(state.dailyLogs[dStr]&&state.dailyLogs[dStr].length);
+    const dayNames=['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+    const el=document.createElement('div');
+    el.className=`day-pill${isActive?' active':''}${isToday&&!isActive?' today-indicator':''}${hasLog&&!isActive?' has-log':''}`;
+    el.innerHTML=`<span class="d-name">${dayNames[d.getDay()]}</span><span class="d-num">${d.getDate()}</span><span class="d-dot"></span>`;
+    el.onclick=()=>{state.currentDate=dStr;updateAll();};
+    strip.appendChild(el);
+    if(isActive) setTimeout(()=>el.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}),50);
+  }
+}
+function goToday(){state.currentDate=new Date().toISOString().split('T')[0];updateAll();}
+
+function getTotals(date) {
+  const log=state.dailyLogs[date]||[];
+  return log.reduce((t,e)=>({cal:t.cal+e.cal,prot:t.prot+e.prot,carb:t.carb+e.carb,fat:t.fat+e.fat,weight:t.weight+e.weight}),{cal:0,prot:0,carb:0,fat:0,weight:0});
+}
+
+function renderDashboard() {
+  const t=getTotals(state.currentDate);
+  const pct=Math.min(t.cal/state.goals.cal,1);
+  const arc=document.getElementById('ring-arc');
+  arc.style.strokeDashoffset=314-(314*pct);
+  arc.className=`ring-progress${pct>=1?' danger':''}`;
+  document.getElementById('ring-cal').innerText=Math.round(t.cal);
+  const diff=state.goals.cal-t.cal;
+  const rt=document.getElementById('remaining-text');
+  if(diff>=0){rt.className='remaining-text';rt.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2.05V4.07c3.95.49 7 3.85 7 7.93 0 3.21-1.81 6-4.72 7.28L13 17v5h5l-1.22-1.22C19.91 19.07 22 15.76 22 12c0-5.18-3.95-9.45-9-9.95zm-2 .02C5.95 2.55 2 6.82 2 12c0 3.76 2.09 7.07 5.22 8.78L6 22h5V6.07l-2-.58V2.07z"/></svg> المتبقي: ${Math.round(diff)} سعرة`;}
+  else{rt.className='remaining-text over';rt.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg> الفائض: ${Math.round(Math.abs(diff))} سعرة`;}
+  const setBar=(id,val,bId,goal)=>{document.getElementById(id).innerText=`${Math.round(val)}/${goal}`;document.getElementById(bId).style.width=Math.min(100,(val/goal)*100)+'%';};
+  setBar('val-prot',t.prot,'bar-prot',state.goals.prot);setBar('val-carb',t.carb,'bar-carb',state.goals.carb);setBar('val-fat',t.fat,'bar-fat',state.goals.fat);
+  document.getElementById('weight-total').innerText=`${Math.round(t.weight)} ج إجمالاً`;
+  const log=state.dailyLogs[state.currentDate]||[];
+  const list=document.getElementById('daily-log-list');
+  if(!log.length){list.innerHTML=`<div class="empty-state"><svg width="64" height="64" viewBox="0 0 24 24" fill="var(--gray)"><path d="M18.06 22.99h1.66c.84 0 1.53-.64 1.63-1.46L23 5.05h-5V1h-1.97v4.05h-4.97l.3 2.34c1.71.47 3.31 1.32 4.27 2.26 1.44 1.42 2.43 2.89 2.43 5.29v8.05zM1 21.99V21h15.03v.99c0 .55-.45 1-1.01 1H2.01c-.56 0-1.01-.45-1.01-1zm15.03-7c0-8-15.03-8-15.03 0h15.03zM1.02 17h15v2H1z"/></svg><p>لا توجد وجبات مسجلة</p><p style="font-size:0.78rem;margin-top:6px;color:#aaa">اضغط + لإضافة وجبتك الأولى</p></div>`;return;}
+  list.innerHTML='';const card=document.createElement('div');card.className='meal-card';
+  log.forEach((entry,idx)=>{const item=document.createElement('div');item.className='meal-item';item.style.animationDelay=(idx*0.04)+'s';item.innerHTML=`<div class="meal-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="var(--primary-dark)"><path d="M18.06 22.99h1.66c.84 0 1.53-.64 1.63-1.46L23 5.05h-5V1h-1.97v4.05h-4.97l.3 2.34c1.71.47 3.31 1.32 4.27 2.26 1.44 1.42 2.43 2.89 2.43 5.29v8.05zM1 21.99V21h15.03v.99c0 .55-.45 1-1.01 1H2.01c-.56 0-1.01-.45-1.01-1zm15.03-7c0-8-15.03-8-15.03 0h15.03zM1.02 17h15v2H1z"/></svg></div><div class="meal-info"><div class="meal-name">${entry.name}</div><div class="meal-meta">${entry.weight}ج • ب:${entry.prot.toFixed(1)} ك:${entry.carb.toFixed(1)} د:${entry.fat.toFixed(1)}</div></div><span class="meal-cal">${Math.round(entry.cal)}</span><button class="meal-delete" onclick="deleteEntry(${idx})"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>`;card.appendChild(item);});
+  list.appendChild(card);
+}
+
+function renderFoods() {
+  const list=document.getElementById('foods-list'),q=(document.getElementById('food-search')?.value||'').toLowerCase();
+  const filtered=state.foods.filter(f=>f.name.toLowerCase().includes(q));
+  list.innerHTML='';
+  if(!filtered.length){list.innerHTML=`<div class="empty-state"><p>لا توجد نتائج</p></div>`;return;}
+  filtered.forEach((food,idx)=>{const el=document.createElement('div');el.className='food-item';el.style.animationDelay=(idx*0.035)+'s';el.innerHTML=`<div class="food-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.06 22.99h1.66c.84 0 1.53-.64 1.63-1.46L23 5.05h-5V1h-1.97v4.05h-4.97l.3 2.34c1.71.47 3.31 1.32 4.27 2.26 1.44 1.42 2.43 2.89 2.43 5.29v8.05zM1 21.99V21h15.03v.99c0 .55-.45 1-1.01 1H2.01c-.56 0-1.01-.45-1.01-1zm15.03-7c0-8-15.03-8-15.03 0h15.03zM1.02 17h15v2H1z"/></svg></div><div class="food-info"><div class="food-name">${food.name}</div><div class="food-macros"><span>${food.serving}ج=${food.cal}kcal</span><span style="color:#3498db">ب${food.prot}</span><span style="color:#f39c12">ك${food.carb}</span><span style="color:#9b59b6">د${food.fat}</span></div></div><div class="food-actions"><button class="icon-btn btn-edit" onclick="editFood(${food.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button><button class="icon-btn btn-del" onclick="deleteFood(${food.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div>`;list.appendChild(el);});
+}
+
+function renderGroups() {
+  const list=document.getElementById('groups-list');
+  if(!state.groups.length){list.innerHTML=`<div class="empty-state"><svg width="64" height="64" viewBox="0 0 24 24" fill="var(--gray)"><path d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"/></svg><p>لا توجد مجموعات</p><p style="font-size:0.78rem;margin-top:6px;color:#aaa">اضغط + لإنشاء مجموعتك الأولى</p></div>`;return;}
+  list.innerHTML='';
+  state.groups.forEach((g,idx)=>{const el=document.createElement('div');el.className='group-card';el.style.animationDelay=(idx*0.04)+'s';const totalCal=g.items.reduce((s,item)=>{const f=state.foods.find(x=>x.id===item.foodId);return f?s+(f.cal*item.weight/f.serving):s;},0);el.innerHTML=`<div class="group-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"/></svg></div><div class="group-info"><div class="group-name">${g.name}</div><div class="group-count">${g.items.length} مكوّن • ${Math.round(totalCal)} kcal</div></div><button class="icon-btn btn-del" onclick="deleteGroup(${g.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>`;list.appendChild(el);});
+}
+
+function renderSettings() {
+  const t=getTotals(state.currentDate);
+  const pct=Math.round((t.cal/state.goals.cal)*100);
+  document.getElementById('settings-stats').innerHTML=`<div class="stat-mini"><div class="stat-mini-val">${Math.round(t.cal)}<small> kcal</small></div><div class="stat-mini-label">سعرات اليوم</div></div><div class="stat-mini"><div class="stat-mini-val">${Math.min(pct,999)}<small>%</small></div><div class="stat-mini-label">من الهدف</div></div><div class="stat-mini"><div class="stat-mini-val">${Object.keys(state.dailyLogs).filter(k=>state.dailyLogs[k].length).length}<small> يوم</small></div><div class="stat-mini-label">أيام مسجّلة</div></div>`;
+  document.getElementById('profile-name-display').innerText=state.prefs.name||'المستخدم';
+  document.getElementById('disp-cal').innerText=state.goals.cal+' kcal';
+  document.getElementById('disp-prot').innerText=state.goals.prot+' ج';
+  document.getElementById('disp-carb').innerText=state.goals.carb+' ج';
+  document.getElementById('disp-fat').innerText=state.goals.fat+' ج';
+  document.getElementById('toggle-meal-reminder').checked=state.prefs.mealReminder;
+  document.getElementById('toggle-cal-alert').checked=state.prefs.calAlert;
+}
+
+const goalMeta={
+  cal:{label:'السعرات الحرارية',unit:'kcal',presets:[1500,1800,2000,2200,2500,3000],step:50},
+  prot:{label:'البروتين',unit:'جرام',presets:[80,100,120,150,180,200],step:5},
+  carb:{label:'الكربوهيدرات',unit:'جرام',presets:[150,200,250,300,350,400],step:10},
+  fat:{label:'الدهون',unit:'جرام',presets:[40,50,60,70,80,100],step:5}
+};
+
+function openGoalSheet(key) {
+  const meta=goalMeta[key];
+  document.getElementById('goal-key').value=key;
+  document.getElementById('goal-sheet-title').innerText='هدف '+meta.label;
+  document.getElementById('goal-field-label').innerText=meta.label+' ('+meta.unit+')';
+  document.getElementById('goal-value-input').value=state.goals[key];
+  document.getElementById('goal-presets').innerHTML=meta.presets.map(p=>`<button class="preset-btn" onclick="document.getElementById('goal-value-input').value=${p}">${p}</button>`).join('');
+  openSheet('sheet-goal');
+}
+function adjustGoal(delta){const inp=document.getElementById('goal-value-input');inp.value=Math.max(0,(parseFloat(inp.value)||0)+delta);}
+function saveGoalFromSheet(){
+  const key=document.getElementById('goal-key').value,val=parseFloat(document.getElementById('goal-value-input').value);
+  if(!val||val<=0){showToast('أدخل قيمة صحيحة');return;}
+  state.goals[key]=val;save();closeSheet();renderSettings();showToast('✓ تم حفظ الهدف');
+}
+
+function openProfileSheet(){document.getElementById('profile-name-input').value=state.prefs.name||'';openSheet('sheet-profile');}
+function saveProfile(){const n=document.getElementById('profile-name-input').value.trim();if(!n){showToast('أدخل اسمك');return;}state.prefs.name=n;save();closeSheet();renderSettings();showToast('✓ تم الحفظ');}
+function savePrefs(){state.prefs.mealReminder=document.getElementById('toggle-meal-reminder').checked;state.prefs.calAlert=document.getElementById('toggle-cal-alert').checked;save();}
+
+function exportData(){const data={foods:state.foods,groups:state.groups,dailyLogs:state.dailyLogs,goals:state.goals};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ghezaei-'+new Date().toISOString().split('T')[0]+'.json';a.click();showToast('✓ تم التصدير');}
+function confirmClear(){if(confirm('سيتم حذف جميع سجلات الوجبات. هل أنت متأكد؟')){state.dailyLogs={};save();updateAll();showToast('تم مسح السجلات');}}
+
+function addConsumptionEntry(){
+  const id=parseInt(document.getElementById('entry-source-id').value),weight=parseFloat(document.getElementById('entry-weight').value);
+  if(!id||!weight||weight<=0){showToast('تحقق من البيانات');return;}
+  if(!state.dailyLogs[state.currentDate])state.dailyLogs[state.currentDate]=[];
+  if(state.entryType==='food'){const food=state.foods.find(f=>f.id===id);if(!food)return;state.dailyLogs[state.currentDate].push(calcEntry(food,weight));}
+  else{const group=state.groups.find(g=>g.id===id);if(!group)return;const mult=weight/100;group.items.forEach(item=>{const food=state.foods.find(f=>f.id===item.foodId);if(food)state.dailyLogs[state.currentDate].push(calcEntry(food,item.weight*mult,`${group.name}: ${food.name}`));});}
+  save();closeSheet();updateAll();showToast('✓ تمت الإضافة');
+}
+function calcEntry(food,weight,customName=null){const r=weight/food.serving;return{name:customName||food.name,weight,cal:food.cal*r,prot:food.prot*r,carb:food.carb*r,fat:food.fat*r};}
+function deleteEntry(idx){state.dailyLogs[state.currentDate].splice(idx,1);save();updateAll();showToast('تم الحذف');}
+
+function saveFood(){const id=document.getElementById('edit-food-id').value;const food={id:id?parseInt(id):Date.now(),name:document.getElementById('food-name').value,serving:parseFloat(document.getElementById('food-serving').value)||100,cal:parseFloat(document.getElementById('food-cal').value)||0,prot:parseFloat(document.getElementById('food-prot').value)||0,carb:parseFloat(document.getElementById('food-carb').value)||0,fat:parseFloat(document.getElementById('food-fat').value)||0};if(!food.name){showToast('أدخل اسم المنتج');return;}if(id){const i=state.foods.findIndex(f=>f.id==id);state.foods[i]=food;}else state.foods.push(food);save();closeSheet();updateAll();showToast('✓ تم حفظ المنتج');}
+function editFood(id){const food=state.foods.find(f=>f.id===id);document.getElementById('food-sheet-title').innerText='تعديل منتج';['edit-food-id','food-name','food-serving','food-cal','food-prot','food-carb','food-fat'].forEach((el,i)=>document.getElementById(el).value=[food.id,food.name,food.serving,food.cal,food.prot,food.carb,food.fat][i]);openSheet('sheet-food');}
+function deleteFood(id){state.foods=state.foods.filter(f=>f.id!==id);save();updateAll();showToast('تم الحذف');}
+
+function addItemToGroupBuilder(){const foodId=parseInt(document.getElementById('group-food-select').value),weight=parseFloat(document.getElementById('group-food-weight').value);if(!foodId||!weight){showToast('أدخل المنتج والوزن');return;}const food=state.foods.find(f=>f.id===foodId);currentGroupItems.push({foodId,weight,name:food.name});renderGroupBuilder();document.getElementById('group-food-weight').value='';}
+function renderGroupBuilder(){const c=document.getElementById('group-builder-list');c.innerHTML='';currentGroupItems.forEach((item,i)=>{const el=document.createElement('div');el.className='builder-item';el.innerHTML=`<span><b>${item.name}</b> — ${item.weight}ج</span><button class="builder-del" onclick="currentGroupItems.splice(${i},1);renderGroupBuilder()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>`;c.appendChild(el);});}
+function saveGroup(){const name=document.getElementById('group-name').value;if(!name){showToast('أدخل اسم المجموعة');return;}if(!currentGroupItems.length){showToast('أضف مكوّناً على الأقل');return;}state.groups.push({id:Date.now(),name,items:[...currentGroupItems]});save();closeSheet();updateAll();showToast('✓ تم حفظ المجموعة');}
+function deleteGroup(id){state.groups=state.groups.filter(g=>g.id!==id);save();updateAll();showToast('تم الحذف');}
+
+function openSheet(id){closeSheet(true);activeSheet=id;document.getElementById('overlay').classList.add('open');requestAnimationFrame(()=>{requestAnimationFrame(()=>document.getElementById(id).classList.add('open'));});document.body.style.overflow='hidden';}
+function closeSheet(silent=false){if(activeSheet){const s=document.getElementById(activeSheet);if(s){s.classList.remove('open');s.style.transform='';}}document.getElementById('overlay').classList.remove('open');activeSheet=null;document.body.style.overflow='';}
+
+const tabConfig={dashboard:{label:'إضافة وجبة'},foods:{label:'إضافة منتج'},groups:{label:'مجموعة جديدة'},settings:null};
+function onFabClick(){
+  if(currentTab==='dashboard'){state.entryType='food';document.getElementById('entry-source-id').innerHTML=state.foods.map(f=>`<option value="${f.id}">${f.name}</option>`).join('');document.querySelectorAll('.seg-btn').forEach((b,i)=>b.classList.toggle('active',i===0));document.getElementById('entry-weight').value='';openSheet('sheet-entry');}
+  else if(currentTab==='foods'){document.getElementById('food-sheet-title').innerText='منتج جديد';document.getElementById('edit-food-id').value='';['food-name','food-cal','food-prot','food-carb','food-fat'].forEach(id=>document.getElementById(id).value='');document.getElementById('food-serving').value=100;openSheet('sheet-food');}
+  else if(currentTab==='groups'){currentGroupItems=[];document.getElementById('group-name').value='';renderGroupBuilder();document.getElementById('group-food-select').innerHTML=state.foods.map(f=>`<option value="${f.id}">${f.name}</option>`).join('');openSheet('sheet-group');}
+}
+function setEntryType(type,btn){state.entryType=type;document.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');const sel=document.getElementById('entry-source-id'),w=document.getElementById('entry-weight');if(type==='food'){sel.innerHTML=state.foods.map(f=>`<option value="${f.id}">${f.name}</option>`).join('');w.placeholder='الوزن بالجرام...';w.value='';}else{sel.innerHTML=state.groups.map(g=>`<option value="${g.id}">${g.name}</option>`).join('');w.value=100;w.placeholder='100 = حصة كاملة';}}
+
+function switchTab(tab,el){
+  currentTab=tab;
+  document.querySelectorAll('.view-section').forEach(s=>s.classList.remove('active'));document.getElementById('view-'+tab).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');
+  const fab=document.getElementById('main-fab'),cfg=tabConfig[tab];
+  if(cfg){fab.classList.remove('hidden');document.getElementById('fab-label').innerText=cfg.label;}else fab.classList.add('hidden');
+  if(tab==='settings')renderSettings();
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.innerText=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+
+let startY=0;
+document.querySelectorAll('.bottom-sheet').forEach(sheet=>{
+  sheet.addEventListener('touchstart',e=>{startY=e.touches[0].clientY;},{passive:true});
+  sheet.addEventListener('touchmove',e=>{const d=e.touches[0].clientY-startY;if(d>0)sheet.style.transform=`translateY(${d}px)`;},{passive:true});
+  sheet.addEventListener('touchend',e=>{const d=e.changedTouches[0].clientY-startY;if(d>100)closeSheet();else sheet.style.transform='';});
+});
+
+function updateAll(){renderDateStrip();renderDashboard();renderFoods();renderGroups();if(currentTab==='settings')renderSettings();}
+window.onload=updateAll;
+</script>
+</body>
+</html>
